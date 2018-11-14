@@ -1,0 +1,262 @@
+---
+title: "MG-RastPipeTutorial"
+author: "Dietrich Epp Schmidt"
+date: "11/8/2018"
+output: html_document
+---
+
+
+## Introduction
+
+This is a tutorial for using mgrastr to preprocess mg-rast data for downstream analyses.
+
+First we need to download the data in a usable format. The taxonomy and functional assignments data are stored differently. MG-Rast has taxonomy assignments summarized and easily accessible as downloadable files for each metagenome that has been annotated. Functional assignment summaries however are calculated on the fly, and the data are output in different formats. Therefore we need slightly different approaches for accessing and reformatting the data for downstream analyses depending on whether we are interested in taxonomic or functional data. To do this, I have made a little package I call mgrastr.
+
+## Install mgrastr
+
+```{r}
+# figure out how to do this!!! install from github!
+install.packages(devtools)
+library(devtools)
+install_github("djeppschmidt/mgrastr")
+
+```
+
+Load mgrastr into R environment
+
+```{r mgrastr}
+library(mgrastr)
+```
+
+
+## MG-Rast Taxonomy import to R
+
+As I mentioned previously, the taxonomy data is managed differently in Phyloseq. There are a number of summary tables that are already compiled and can be called directly from the REST server. But before we do this, we need a list of accession numbers. I have made a list of my own by accessing each metagenome, and copy/paste the metagenome ID into an excel file. The accession ID for each sample should start with "mgm" and end with ".3"; it is the same ID for each level of taxonomy. When we downlaod the data, for each accession number we will get a list of tables; one for each taxonomic level. But I'm getting ahead of myself. I've compiled my list of accession numbers in excel and imported as a .csv; you could write your directly in R to avoid the formating issues we'll deal with in the next step. As an example, we will be downloading the first ten samples from my GLUSEEN study. The accession numbers are already loaded in the package. Let's look at their format:
+
+```{r}
+
+```
+You can replicate for your own data; you will need a spreadsheet (.csv file) with three columns: the unique sample ID; the unique sequence ID (this would differentiate for two sequencing runs that were annotated seperately on the same sample); and the MG-Rast accession number (e.g. mgm4819267.3)
+```{r}
+# make list of samples ####
+O.key<-read.csv("~/Desktop/PhD/Metagenome/Organism/DownloadKey.csv")
+O.key<-data.frame(O.key)
+head(O.key)
+```
+
+OK, now we need to make sure that R is reading the key properly. It somtimes imports the data factors. This doesn't work for us, so we tell it to read them as characters:
+
+```{r}
+O.key$Seq_ID<-as.character(O.key$Seq_ID)
+O.key$Private_ID<-as.character(O.key$Private_ID)
+```
+Now, we prepare the list of IDs for our download function by telling R that they are a list, and naming each of the members (this will be important later on to ensure that we don't mislabel data files):
+```{r}
+l.sID<-as.list(O.key$Private_ID)
+names(l.sID)<-O.key$Seq_ID
+```
+Now, we download the taxonmy data:
+```{r}
+l.taxa<-download(l.sID, auth)
+```
+
+Now, we have a large list of lists of tables e.g. l.taxa[sample_1[genus.table]]
+
+Before we aggregate everything together, we have to prepare the metadata:
+(This metadata will also be used later in the download functions workflow as well)
+```{r}
+sample_key<-read.csv("~/Desktop/PhD/Metagenome/SampleKey.csv")
+sample_key<-data.frame(sample_key)
+rownames(sample_key)<-sample_key$Seq_ID
+
+sam<-as.data.frame(read.csv("~/Desktop/PhD/Metagenome/GLUSEEN_HM2_metadata.csv"))
+rownames(sam)<-sam$Sample_ID
+```
+
+The next step to to aggregate the samples together into a table of taxa, and then condense the replicates (just like in the function table). I do this in two steps:
+
+```{r}
+t.domain<-ag.tax(l.taxa, ag.Domain) # builds the count table
+ct.domain<-condense(t.domain, samkey=sample_key, sam=sam) # combines replicate sequencing runs
+```
+The condense step is not necessary if you combined your forward/reverse and resequencing fasta files before the annoataion run. I did not, so I have to merge the annotations now. I'm not concerned about double counting because all my runs have both a forward and reverse read, therefore I'm "double counting" equally across all my samples and as long as I'm consistent I will get the same pattern as if I averaged the samples. 
+
+And, of course we can run this process at many different taxnomic levels:
+```{r}
+t.phylum<-ag.tax(l.taxa, ag.Phylum)
+t.class<-ag.tax(l.taxa, ag.Class)
+t.order<-ag.tax(l.taxa, ag.Order)
+t.family<-ag.tax(l.taxa, ag.family)
+t.genus<-ag.tax(l.taxa, ag.Genus)
+t.species<-ag.tax(l.taxa, ag.Species)
+
+ct.phylum<-condense(t.phylum, samkey=sample_key, sam=sam)
+ct.class<-condense(t.class, samkey=sample_key, sam=sam)
+ct.order<-condense(t.order, samkey=sample_key, sam=sam)
+ct.family<-condense(t.family, samkey=sample_key, sam=sam)
+ct.genus<-condense(t.genus, samkey=sample_key, sam=sam)
+ct.species<-condense(t.species, samkey=sample_key, sam=sam)
+```
+
+The output are phyloseq objects with OTU tables and metadata merged together for easy downstream processing. YAY!!
+
+
+## R-based functional annotation download
+
+Right now this function only works for the Subsystems ontology. Hopefully I will get to expanding it's capability soon!
+
+For starters, a central challenge for downloading summarized annotations from MG-Rast is that the counts are aggregated on the fly. This means that there is some time between the request, and when the results are posted to the output url. For execution simplicity (and reduce computational demand) I've devided the workflow into two basic steps. The first submits the request to MG-Rast, and the second downloads the results from the url supplied by MG-Rast. It can take MG-Rast some time to fill the request, and the url is available for quite a long time after the request is submitted. So I recommend setting up the request to run over the weekend, then run the download and parse script first thing on a Monday.
+
+The first step is to define the input variables. In this case: 
+
+x  = an accession number or a list of accession numbers (prefered in the e.g. mgm1111111.3 format)
+auth = your authentication key
+ont = what source of annotation; can be one of "Subsystems", "KO", "KEGG", or "COG" (only Subsystems is working right now)
+parallel = logical, default is TRUE.
+
+
+A note on formatting the input: it should be a list, with the unique sample ID as the key (or name) for every member of the list. Here's an example of how I make my input list:
+```{r}
+O.key<-read.csv("~/Desktop/PhD/Metagenome/SampleKey.csv")
+O.key<-data.frame(O.key)
+O.key$Seq_ID<-as.character(O.key$Seq_ID) # unique sample IDs
+O.key$Private_ID<-as.character(O.key$MG_ID) # unique accession codes in mgm... .3 format
+
+l.sID<-as.list(O.key$MG_ID) # make list of accession numbers
+names(l.sID)<-O.key$Seq_ID # name list according to unique sample IDs
+```
+
+Ok, now we call the script that will start MG-Rast compiling the data.
+```{r}
+url<-loadFunc(l.sID,  auth="gbdwiyCZqACamvn8fG59aTs3Z", ont="subsystem")
+```
+
+This script will produce a list of urls that will eventually be populated with the annotation data. It should submit the requests relatively quickly; if you want you can wait 15-20 minutes to make sure the script completes without errors and shut things down for the evening. The long wait is on the server end as it's quietly compiling the results. They may not be ready for 10-20 hours, depending on how large your files are and how many requests you are submitting at once (how long your list of accession numbers is). Most files will be ready in under an hour, but it's best to be patient and let the server finish.
+
+To download the data, we simply execute the following:
+
+x = list of urls
+ont = ontology that was requested; this tells script what format to expect he data in (each ontology has it's own output format).
+level = ontology level of interest. Must be one of 1, 2, 3, or 4. 4 is higest granularity.
+
+```{r}
+dt<-downloadFunc(url, ont="Subsystems", level=3)
+```
+
+The output of this function is a table with samples as columns and functions as rows, populated with counts. From here, we condense replicate sequencing runs and forward/reverse reads, just like in the taxonomy workflow.
+
+```{r}
+dt<-condense(dt, samkey, sam)
+```
+
+OK We're finished and ready for analysis. YAY!!
+
+
+## Using Python to get functions...
+In case you really want another way to get at function data, you can do it using a python script. Here are the instructions for getting the python output into R:
+
+the python script call for creating count tables of functions:
+
+mg-compare-functions.py
+
+the download and install documentation can be found here:
+
+https://github.com/MG-RAST/MG-RAST-Tools/blob/master/scripts/mg-compare-functions.py
+
+briefly, in a terminal window (assuming you are using OSX or Linnux):
+
+git clone http://github.com/MG-RAST/MG-RAST-Tools
+cd MG-RAST-Tools
+python setup.py build
+sudo python setup.py install
+
+
+An example download script:
+
+mg-compare-functions.py --token "xxyyzz" --ids "mgm4812553.3,mgm4812534.3,mgm4812503.3,mgm4812482.3" --level level3 --source Subsystems --format text --evalue 10 > ~/Desktop/PhD/Metagenome/Function/mgRast_ontologyLVL3_list66.txt
+
+Let's break this down;
+
+--token "xxyyzz" 
+is my personal authentication token that allows me to access my own private metagenomes. This token can be access once you've logged into MG-Rast.org by opening the "my profile" dialogue box, and clicking the "show webkey" icon.
+
+--ids "mgm4812553.3,mgm4812534.3,mgm4812503.3,mgm4812482.3"
+are the unique accession numbers for each metagenome. You can include as many metagenomes as you want in each script call with the very important caveat: the MG-Rast download server has a tendency to clean out temporary files periodically so if you have too many (in my experience, more than 10) metagenomes to compile, it will delete the temporary file where it is compiling the data before it is available to you. This generates an error in terminal and you don't get any data. The solution is to cut up your data into digestible chunks, then compile them later in R (we'll do this in a second)
+
+--level level3
+functional ontology has 4 levels. Level 4 is the most granular, in my experience level 3 is the most interpretable level. Levels 2 and 1 are too aggregated and are good for broad summary of the profile, but not very usefull for answering more specific ecological questions.
+
+--source Subsystems
+There are several ontologies for annotating your data, my favorite is subsystems because it provides the most detailed and interpretable results while also successfully annotating a larger number of the sequences.
+
+--format text
+you have two options; text or json. I find text files to be easier to get into R.
+
+--evalue 10
+this sets the minimum quality for the matches.
+
+(> ~/Desktop/PhD/Metagenome/Function/mgRast_ontologyLVL3_list66.txt)
+designates the output directory path and file name for the downloaded data.
+
+OK, once we've downloaded several files of summary function data, we need to get them together into one larger table.
+define file path to files
+```{r}
+path1<-"~/path/to/files/" #for me: "~/Desktop/PhD/Metagenome/Function/"
+
+```
+load dependencies
+```{r}
+#load dependencies
+library(plyr)
+library(phyloseq)
+```
+make a list of files that you will read into R
+```{r}
+F.files<-list.files(path1, pattern=".txt")
+F.files
+```
+make a list of file paths to those files
+```{r}
+F.filesLong<-paste(path1, F.files, sep="")
+F.filesLong
+```
+read files into R. This creates a list of phyloseq otu tables, where each table in the list represents one file that you read in. These can be considered analagous to data frames.
+```{r}
+F.list.df<-lapply(F.filesLong, read_files)
+F.list.df
+```
+
+Now we merge together our phyloseq otu tables. In this step, we are selecting each phyloseq object from the list we created in the last step, and combining them. I've shown what it will look like if you have 8 tables you want to combine. If you have a longer list, then you will have to select all of them. For example, if you go up to 50, the last one would be "F.list.df[[8]]"
+
+```{r}
+ps.F<-merge_phyloseq(F.list.df[[1]],F.list.df[[2]],F.list.df[[3]],F.list.df[[4]],F.list.df[[5]],F.list.df[[6]],F.list.df[[7]],F.list.df[[8]]) # 
+```
+
+Now we have one large OTU table. The next step is to merge metagenomes that represent the same sample (e.g. forward/reverse reads or multiple sequencing runs). For this you will need a metadata table that has a column that represents unique sample IDs, and another column that represents the unique metagenome IDs. You should have multiple metagenome IDs for each sample ID. In this example, my column of sample IDs is called "Sample_ID"; and my column of unique metagenome IDs is called "MG_ID"
+
+```{r}
+key<-read.csv("~/Desktop/PhD/Metagenome/SampleKey.csv")
+key<-data.frame(key)
+rownames(key)<-key$MG_ID
+```
+
+Ok, a good check before moving on is to make sure that your table has all the same metagenome IDs as your otu table. This is necessary for merging in phyloseq. Phyloseq won't always give an error if the IDs do not match. Many times it will just silently drop metadata that don't match any samples. This is a good check to make sure you have actually downloaded all your samples.
+
+```{r}
+setdiff(key$MG_ID,colnames(otu_table(ps.F)))
+```
+
+Now, we need to import our sample metadata into R. The aggregation function will need it to output a full phyloseq object with function table, and metadata all attached together. This metadata should be structured per your samples, not metagenomes.
+```{r}
+sam<-as.data.frame(read.csv("~/path/to/metadata.csv")) 
+# for me: "~/Desktop/PhD/Metagenome/GLUSEEN_HM2_metadata.csv"
+sam
+```
+
+Now we aggregate the metagenome data together to represent samples. 
+
+```{r}
+ps.F<-condense.F(ps.F, key, sam)
+```
+
+Now the function data is in R and ready for downstream analysis. YAY!

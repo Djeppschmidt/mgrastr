@@ -1,0 +1,10 @@
+Package: mgrastr
+Title: Import, summarize, and format MG-Rast annotations for use in R
+Version: 0.0.0.9000
+Authors@R: person("Dietrich", "Epp Schmidt", email = "djeppschmidt@gmail.com", role = c("aut", "cre"))
+Description: This package facilitates downloading and import of sequence annotation data from the MG-Rast server. Can be used for taxonomy annotations or functional annotations. A tutorial is available on GitHub. 
+Depends: R (>= 3.4.4)
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
