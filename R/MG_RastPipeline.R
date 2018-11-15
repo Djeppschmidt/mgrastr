@@ -205,7 +205,7 @@ load<-function(x, auth, ont){
   require(httr)
   require(jsonlite)
   
-  if(ont=="subsystem"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=Subsystems&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
+  if(ont=="Subsystems"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=Subsystems&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
   else if(ont=="KO"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=KO&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
   else if(ont=="COG"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=COG&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
   else if(ont=="NOG"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=NOG&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
@@ -257,33 +257,82 @@ download.F<-function(x, level, ont){
   s.dl<-fromJSON(content(GET(x), "text"), flatten=T)
   
   if(ont=="Subsystems"){
-  s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
-  #s.func[,1]<-s.dl$data$columns$id
-  s.func[,2]<-s.dl$data$data
-  #colnames(s.func)<-c("MG_ID", "Function", "Count")
-  if(level==3){
+    s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
+    s.func[,2]<-s.dl$data$data
+    if(level==3){
     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
+    }
+    else if(level==2){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
+    }
+    else if(level==1){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
+    }
+    else if(level==4){
+     s.func[,1]<-s.dl$data$rows$id
+    }
+    else { return("error: level not specified, or out of bounds")}
   }
-  else if(level==2){
-    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
+
+  else if (ont=="KO"){
+    s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
+    s.func[,2]<-s.dl$data$data
+  
+    if(level==3){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
+    }
+    else if(level==2){
+     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
+    }
+    else if(level==1){
+     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
+    }
+   else if(level==4){
+     s.func[,1]<-s.dl$data$rows$id
+    }
+    else { return("error: level not specified, or out of bounds")}
   }
-  else if(level==1){
-    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
-  }
-  else if(level==4){
+  
+  else if (ont=="COG"){
+    s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
+    s.func[,2]<-s.dl$data$data
+  
+    if(level==3){
+    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
+    }
+    else if(level==2){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
+    }
+    else if(level==1){
+     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
+    }
+   else if(level==4){
     s.func[,1]<-s.dl$data$rows$id
-  }
+    }
   else { return("error: level not specified, or out of bounds")}
   }
-  else {return("Error: under development")}
-
+  
+  else if (ont=="NOG"){
+    s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
+    s.func[,2]<-s.dl$data$data
+    
+    if(level==3){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
+    }
+    else if(level==2){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
+    }
+    else if(level==1){
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
+    }
+    else if(level==4){
+      s.func[,1]<-s.dl$data$rows$id
+    }
+  }
+  
+else {return("Error: ontology not specified, or out of bounds")}
+  
   as.data.frame(s.func)
-  #else if (ont=="KO"){}
-  
-  #else if (ont=="COG"){}
-  
-  #else {return("Error: ontology not specified, or out of bounds")}
-  
   s.func
 }
 

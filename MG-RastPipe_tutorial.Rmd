@@ -15,10 +15,9 @@ First we need to download the data in a usable format. The taxonomy and function
 ## Install mgrastr
 
 ```{r}
-# figure out how to do this!!! install from github!
 install.packages(devtools)
 library(devtools)
-install_github("djeppschmidt/mgrastr")
+install_github("djeppschmidt/mgrastr") # requires R V 3.4.4 or greater
 
 ```
 
@@ -47,8 +46,8 @@ head(O.key)
 OK, now we need to make sure that R is reading the key properly. It somtimes imports the data factors. This doesn't work for us, so we tell it to read them as characters:
 
 ```{r}
-O.key$Seq_ID<-as.character(O.key$Seq_ID)
-O.key$Private_ID<-as.character(O.key$Private_ID)
+l.sID<-as.character(O.key$MG_ID) # make list of accession numbers
+names(l.sID)<-O.key$Seq_ID # name list according to unique sample IDs
 ```
 Now, we prepare the list of IDs for our download function by telling R that they are a list, and naming each of the members (this will be important later on to ensure that we don't mislabel data files):
 ```{r}
@@ -122,7 +121,7 @@ O.key<-data.frame(O.key)
 O.key$Seq_ID<-as.character(O.key$Seq_ID) # unique sample IDs
 O.key$Private_ID<-as.character(O.key$MG_ID) # unique accession codes in mgm... .3 format
 
-l.sID<-as.list(O.key$MG_ID) # make list of accession numbers
+l.sID<-as.character(O.key$MG_ID) # make list of accession numbers
 names(l.sID)<-O.key$Seq_ID # name list according to unique sample IDs
 ```
 
