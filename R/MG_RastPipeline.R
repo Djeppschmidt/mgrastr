@@ -157,38 +157,10 @@ ag.tax<-function(l.taxa, f){
 condense<-function(df, samkey, sam){
   require(phyloseq)
   ps<-phyloseq(otu_table(df, taxa_are_rows = T), sample_data(samkey))
-  ps2<-merge_samples(ps, Sample_ID, fun = sum)
-  sample_data(ps2)<-sample_data(sam)
+  ps2<-merge_samples(ps, "Sample_ID", fun = sum)
+  sample_data(ps2)<-sam
   ps2
 }
-
-# more indepth with tax table... not sure if necessary?
-#condense2<-function(df, samkey, sam){
-#  require(phyloseq)
-# ps<-phyloseq(otu_table(df, taxa_are_rows = T), sample_data(samkey))
-#  tax<-matrix(data=NA, nrow=length(taxa_names(ps)), ncol=1)
-#  rownames(tax)<-taxa_names(ps)
-#  tax[,1]<-taxa_names(ps)
-#  colnames(tax)<-"Domain"
-#  tax_table(ps)<-tax
-#  ps2<-merge_samples(ps, "Sample_ID", fun = sum)
-#  sample_data(ps2)<-sample_data(sam)
-#  ps2
-#}
-#condense function for using the python script:
-
-#condense.F<-function(df, samkey, sam){
-#  require(phyloseq)
-#  ps<-phyloseq(df, sample_data(samkey))
-#  tax<-matrix(data=NA, nrow=length(taxa_names(ps)), ncol=1)
-#  rownames(tax)<-taxa_names(ps)
-#  tax[,1]<-taxa_names(ps)
-#  colnames(tax)<-"Function"
-#  tax_table(ps)<-tax
-#  ps2<-merge_samples(ps, "Sample_ID", fun = sum)
-#  sample_data(ps2)<-sample_data(sam)
-#  ps2
-#}
 
 
 #' load
@@ -197,22 +169,19 @@ condense<-function(df, samkey, sam){
 #' @param x list of mg-rast accession numbers
 #' @param auth authentication code for mg-rast
 #' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @param level level of ontology. acceptable values: 1, 2, 3, 4. 
+#' @param E expected error value. default mg-rast is 5; (e^-5), larger numbers are more retrictive.
+#' @param length minimun number of bp to match query string. mg-rast uses 15
+#' @param id minimum percent match. mg-rast uses 60
 #' @keywords mg-RAST function download
 #' @export
 #' @examples
 #' load()
-load<-function(x, auth, ont){
+mg.load<-function(x, auth, ont, level, E, length, id){
   require(httr)
   require(jsonlite)
-  
-  if(ont=="Subsystems"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=Subsystems&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
-  else if(ont=="KO"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=KO&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
-  else if(ont=="COG"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=COG&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
-  else if(ont=="NOG"){base<-"https://api.mg-rast.org//matrix/function?group_level=level3&source=NOG&evalue=10&identity=60&length=15&version=1&result_type=abundance&asynchronous=1&id="}
-  
   end<-"&auth="
-  #auth="gbdwiyCZqACamvn8fG59aTs3Z"
-  s<-fromJSON(content(GET(paste(base,x,end,auth,sep="")), "text"), flatten=T)
+  s<-fromJSON(content(GET(paste("https://api.mg-rast.org//matrix/function?group_level=level", level, "&source=", ont, "&evalue=", E, "&identity=", id, "&length=", length, "&version=1&result_type=abundance&asynchronous=1&id=", x,"&auth=", auth, sep="")), "text"), flatten=T)
   u<-s$url
   names(u)<-names(x)
   u
@@ -223,19 +192,23 @@ load<-function(x, auth, ont){
 #' load wrapper for many different samples
 #' @param x list of mg-rast accession numbers
 #' @param auth authentication code for mg-rast
-#' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @param ont type of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @param level level of ontology. acceptable values: 1, 2, 3, 4. 
+#' @param E expected error value. default mg-rast is 5; (e^-5), larger numbers are more retrictive.
+#' @param length minimun number of bp to match query string. mg-rast uses 15
+#' @param id minimum percent match. mg-rast uses 60
 #' @param parallel logical; default is T
 #' @keywords mg-RAST function download
 #' @export
 #' @examples
 #' loadFunc()
-loadFunc<-function(x, auth, ont, parallel){
+loadFunc<-function(x, auth, ont, level, E, length, id, parallel){
   require(parallel)
   require(plyr)
   if(parallel==FALSE) {
-    l<-lapply(x, load, auth, ont)}
+    l<-lapply(x, mg.load, auth, ont, level, E, length, id)}
   else {
-  l<-mclapply(x, load, auth, ont)
+  l<-mclapply(x, mg.load, auth, ont, level, E, length, id)
   }
   l
 }
@@ -365,15 +338,3 @@ downloadFunc<-function(x, level, ont){
   t.f
 } #works for Subsystems!!
 
-
-# for python scripts ####
-
-# reading into R ####
-#read_files<-function(names){
-#  require(phyloseq)
-#  a<-data.frame(read.delim(names))
-#  rownames(a)<-a$X
-#  a<-a[,-c(1)]
-#  a<-phyloseq(otu_table(a, taxa_are_rows = T))
-#  a
-#} #for lapply to make a bunch of dataframes

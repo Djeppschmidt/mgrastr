@@ -125,8 +125,16 @@ names(l.sID)<-O.key$Seq_ID # name list according to unique sample IDs
 ```
 
 Ok, now we call the script that will start MG-Rast compiling the data.
+
+level = level of ontology to querry. acceptable values are anything between 1 and 4.
+E = the e-value. is interpreted as e^-E; thus higher values mean smaller e values, and therefore less random matching. MG-Rast devault is 5
+length = the minimum length of match. MG-RAST default is 15
+id = minimum percent bases matching. MG-RAST default is 60
+
+*THIS PROGRAM HAS NO DEFAULT VALUE, YOU MUST PICK YOUR OWN*
 ```{r}
-url<-loadFunc(l.sID,  auth="gbdwiyCZqACamvn8fG59aTs3Z", ont="Subsystems")
+url<-loadFunc(l.sID,  auth="gbdwiyCZqACamvn8fG59aTs3Z", ont="Subsystems", level=3, E=15, length=15, id=60, parallel=FALSE)
+head(url)
 ```
 
 This script will produce a list of urls that will eventually be populated with the annotation data. It should submit the requests relatively quickly; if you want you can wait 15-20 minutes to make sure the script completes without errors and shut things down for the evening. The long wait is on the server end as it's quietly compiling the results. They may not be ready for 10-20 hours, depending on how large your files are and how many requests you are submitting at once (how long your list of accession numbers is). Most files will be ready in under an hour, but it's best to be patient and let the server finish.
