@@ -169,7 +169,7 @@ condense<-function(df, samkey, sam){
 #' @param x list of mg-rast accession numbers
 #' @param auth authentication code for mg-rast
 #' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
-#' @param level level of ontology. acceptable values: 1, 2, 3, 4. 
+#' @param level level of ontology. acceptable values: 1, 2, 3, 4.
 #' @param E expected error value. default mg-rast is 5; (e^-5), larger numbers are more retrictive.
 #' @param length minimun number of bp to match query string. mg-rast uses 15
 #' @param id minimum percent match. mg-rast uses 60
@@ -193,7 +193,7 @@ mg.load<-function(x, auth, ont, level, E, length, id){
 #' @param x list of mg-rast accession numbers
 #' @param auth authentication code for mg-rast
 #' @param ont type of ontology. acceptable: Subsystems, COG, KO, NOG
-#' @param level level of ontology. acceptable values: 1, 2, 3, 4. 
+#' @param level level of ontology. acceptable values: 1, 2, 3, 4.
 #' @param E expected error value. default mg-rast is 5; (e^-5), larger numbers are more retrictive.
 #' @param length minimun number of bp to match query string. mg-rast uses 15
 #' @param id minimum percent match. mg-rast uses 60
@@ -226,9 +226,9 @@ loadFunc<-function(x, auth, ont, level, E, length, id, parallel){
 download.F<-function(x, level, ont){
   require(httr)
   require(jsonlite)
-  
+
   s.dl<-fromJSON(content(GET(x), "text"), flatten=T)
-  
+
   if(ont=="Subsystems"){
     s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
     s.func[,2]<-s.dl$data$data
@@ -250,7 +250,7 @@ download.F<-function(x, level, ont){
   else if (ont=="KO"){
     s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
     s.func[,2]<-s.dl$data$data
-  
+
     if(level==3){
       s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
     }
@@ -265,11 +265,11 @@ download.F<-function(x, level, ont){
     }
     else { return("error: level not specified, or out of bounds")}
   }
-  
+
   else if (ont=="COG"){
     s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
     s.func[,2]<-s.dl$data$data
-  
+
     if(level==3){
     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
     }
@@ -284,11 +284,11 @@ download.F<-function(x, level, ont){
     }
   else { return("error: level not specified, or out of bounds")}
   }
-  
+
   else if (ont=="NOG"){
     s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
     s.func[,2]<-s.dl$data$data
-    
+
     if(level==3){
       s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
     }
@@ -302,9 +302,9 @@ download.F<-function(x, level, ont){
       s.func[,1]<-s.dl$data$rows$id
     }
   }
-  
+
 else {return("Error: ontology not specified, or out of bounds")}
-  
+
   as.data.frame(s.func)
   s.func
 }
