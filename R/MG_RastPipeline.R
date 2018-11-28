@@ -181,7 +181,9 @@ mg.load<-function(x, auth, ont, level, E, length, id){
   require(httr)
   require(jsonlite)
   end<-"&auth="
-  s<-fromJSON(content(GET(paste("https://api.mg-rast.org//matrix/function?group_level=level", level, "&source=", ont, "&evalue=", E, "&identity=", id, "&length=", length, "&version=1&result_type=abundance&asynchronous=1&id=", x,"&auth=", auth, sep="")), "text"), flatten=T)
+  if(level==4){
+  s<-fromJSON(content(GET(paste("https://api.mg-rast.org//matrix/function?group_level=function&source=", ont, "&evalue=", E, "&identity=", id, "&length=", length, "&version=1&result_type=abundance&asynchronous=1&id=", x,"&auth=", auth, sep="")), "text"), flatten=T)}
+  else{s<-fromJSON(content(GET(paste("https://api.mg-rast.org//matrix/function?group_level=level", level, "&source=", ont, "&evalue=", E, "&identity=", id, "&length=", length, "&version=1&result_type=abundance&asynchronous=1&id=", x,"&auth=", auth, sep="")), "text"), flatten=T)}
   u<-s$url
   names(u)<-names(x)
   u
@@ -306,9 +308,30 @@ download.F<-function(x, level, ont){
 else {return("Error: ontology not specified, or out of bounds")}
 
   as.data.frame(s.func)
-  s.func
+  s.func # restructure to return a phyloseq w/ tax table extracted
 }
 
+# scratch ####
+{
+  s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
+  s.func[,2]<-s.dl$data$data
+  s.func[,1]<-s.dl$data$rows$id
+  if(level==3){
+    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
+  }
+  else if(level==2){
+    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
+  }
+  else if(level==1){
+    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
+  }
+  else if(level==4){
+    s.func[,1]<-s.dl$data$rows$id
+  }
+}
+
+
+#####
 #' download functions
 #'
 #' download functional annotations of many files, combine into a table
@@ -329,7 +352,6 @@ downloadFunc<-function(x, level, ont){
   dl$Values<-as.numeric(dl$Values)
   dl$Function<-as.character(dl$Function)
   dl<-na.omit(dl)
-  #dl<-na.rm(dl)
   t.f<-as.data.frame(dcast(dl, Function~ID, fun.aggregate=sum, na.omit=T))
   rownames(t.f)<-t.f$Function
   t.f<-t.f[,-1]
@@ -338,3 +360,52 @@ downloadFunc<-function(x, level, ont){
   t.f
 } #works for Subsystems!!
 
+#' combine tables and condense
+#'
+#' download functional annotations of many files, combine into a table
+#' @param x list of mg-rast accession numbers
+#' @param auth authentication code for mg-rast
+#' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @keywords mg-RAST function download
+#' @export
+#' @examples
+#' DFTax()
+DFTax<-function(l){
+  l.t<-lapply(l, extractT)
+  t<-ldply(l.t, cbind)
+  t<-t[!duplicated(t$ID),]
+  t<-t[,2:6]
+  rownames(t)<-t$ID
+  t
+}
+
+
+#' parse single ontology into heirarchical table
+#'
+#' download functional annotations of many files, combine into a table
+#' @param x list of mg-rast accession numbers
+#' @param auth authentication code for mg-rast
+#' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @keywords mg-RAST function download
+#' @export
+#' @examples
+#'extractT()
+extractT<-function(url){
+  u<-fromJSON(content(GET(url), "text"), flatten=T)
+  t<-data.frame("L1"=u$data$rows$metadata.hierarchy.level1,"L2"=u$data$rows$metadata.hierarchy.level2,"L3"=u$data$rows$metadata.hierarchy.level3,"L4"=u$data$rows$metadata.hierarchy.level4, "ID"=u$data$rows$id)
+  t
+}
+
+#' parse single ontology into heirarchical table
+#'
+#' download functional annotations of many files, combine into a table
+#' @param x list of mg-rast accession numbers
+#' @param auth authentication code for mg-rast
+#' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @keywords mg-RAST function download
+#' @export
+#' @examples
+#'dendromap()
+dendromap<-function(){
+
+}
