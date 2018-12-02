@@ -311,25 +311,6 @@ else {return("Error: ontology not specified, or out of bounds")}
   s.func # restructure to return a phyloseq w/ tax table extracted
 }
 
-# scratch ####
-{
-  s.func<-matrix(data=NA, nrow=length(s.dl$data$rows$id),ncol=2)
-  s.func[,2]<-s.dl$data$data
-  s.func[,1]<-s.dl$data$rows$id
-  if(level==3){
-    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level3
-  }
-  else if(level==2){
-    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level2
-  }
-  else if(level==1){
-    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
-  }
-  else if(level==4){
-    s.func[,1]<-s.dl$data$rows$id
-  }
-}
-
 
 #####
 #' download functions
@@ -374,7 +355,7 @@ DFTax<-function(l){
   l.t<-lapply(l, extractT)
   t<-ldply(l.t, cbind)
   t<-t[!duplicated(t$ID),]
-  t<-t[,2:6]
+  #t<-t[,2:6]
   rownames(t)<-t$ID
   t
 }
@@ -391,6 +372,8 @@ DFTax<-function(l){
 #' @examples
 #'extractT()
 extractT<-function(url){
+  require(jsonlite)
+  require(httr)
   u<-fromJSON(content(GET(url), "text"), flatten=T)
   t<-data.frame("L1"=u$data$rows$metadata.hierarchy.level1,"L2"=u$data$rows$metadata.hierarchy.level2,"L3"=u$data$rows$metadata.hierarchy.level3,"L4"=u$data$rows$metadata.hierarchy.level4, "ID"=u$data$rows$id)
   t
@@ -409,3 +392,89 @@ extractT<-function(url){
 dendromap<-function(){
 
 }
+
+
+#' construct table of network index values
+#'
+#' download functional annotations of many files, combine into a table
+#' @param x list of phyloseq objects
+#' @param groups1 list of groups to divide phylsoeq object by
+#' @param groups2 groups for stats model
+#'
+#' @export
+#' @examples
+#'netstat()
+netStat<-function(x, groups1, groups2){
+  require(plyr)
+  y$graphs<-ldply(groups, plotNtwk, x)
+  y$metrics<-ldply(groups, ConnStat, x)
+  y$metrics<-data.frame(y$metrics, groups2) # sanity check
+  y$stats<-c("Closeness"=summary(aov(y$metrics$Closeness~groups2$Cities*groups2$Codes)),
+             "Degree"=summary(aov(y$metrics$Degree~groups2$Cities*groups2$Codes)),
+             "Modularity"=summary(aov(y$metrics$Modularity~groups2$Cities*groups2$Codes)))
+  y
+}
+
+#' set filter for function abundance
+#'
+#' download functional annotations of many files, combine into a table
+#' @param b functions
+#' @export
+#' @examples
+#'netstat()
+filt<-function(b){sum(b>2)>(0.8*length(b))}
+
+#' construct table of connectivity values
+#'
+#' download functional annotations of many files, combine into a table
+#' @param x phyloseq object
+#' @param cat categorical variable to subset phyloseq object
+#'
+#' @keywords igraph metric summaries
+#' @export
+#' @examples
+#' netstat()
+ConnStat<-function(groups, x){
+  require(phyloseq)
+  require(igraph)
+  a<-subset_samples(x, samplecodes==groups)
+  a<-finter_taxa(a, filt, TRUE)
+  a<-otu_table(a)
+  colnames(out)<-c("Closeness", "Degree", "Modularity")
+  out[1,1]<-mean(closeness(a))
+  out[1,2]<-sum(degree(a))/length(degree(a))
+  out[1,3]<-mean(modularity(a))
+  out
+}
+
+#' construct table of connectivity values
+#'
+#' download functional annotations of many files, combine into a table
+#' @param x phyloseq object
+#' @param cat categorical variable to subset phyloseq object
+#'
+#' @keywords igraph metric summaries
+#' @export
+#' @examples
+#'plotNtwk()
+plotNtwk<-function(groups, x){
+  require(phyloseq)
+  require(igraph)
+  a<-subset_samples(x, samplecodes==groups)
+  a<-filter_taxa(a, filt, TRUE)
+  a<-transform_sample_counts(a, transform)
+  a<-otu_table(a)
+  net<-graph_from_incidence_matrix(a)
+  ceb <- cluster_edge_betweenness(net)
+  out$plot1<-dendPlot(ceb, mode="hclust")
+  out$plot2<-plot(ceb, net)
+  out$ceb<-ceb
+  out}
+
+#' transform count values
+#' @param x taxa
+#' @keywords igraph metric summaries
+#' @export
+#' @examples
+#'transform()
+transform<-function(x){x/sum(x)}
