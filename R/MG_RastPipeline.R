@@ -404,14 +404,18 @@ dendromap<-function(){
 #' @export
 #' @examples
 #'netstat()
-netStat<-function(x, groups1, groups2){
+netStat<-function(list, groups2, name){
   require(plyr)
-  y$graphs<-ldply(groups, plotNtwk, x)
-  y$metrics<-ldply(groups, ConnStat, x)
+  require(dplyr)
+  #pdf(paste("~/Desktop/PhD/Metagenome/Networks/Disease.pdf", sep=""))
+ # y$membership<-
+  l_ply(list, plotNtwk, name)
+  #while (!is.null(dev.list()))  dev.off()
+  y$metrics<-ldply(list, ConnStat)
   y$metrics<-data.frame(y$metrics, groups2) # sanity check
-  y$stats<-c("Closeness"=summary(aov(y$metrics$Closeness~groups2$Cities*groups2$Codes)),
-             "Degree"=summary(aov(y$metrics$Degree~groups2$Cities*groups2$Codes)),
-             "Modularity"=summary(aov(y$metrics$Modularity~groups2$Cities*groups2$Codes)))
+  y$stats<-c("Closeness"=summary(aov(Closeness~Codes, data=y$metrics)),
+             "Degree"=summary(aov(Closeness~Codes, data=y$metrics)),
+             "Modularity"=summary(aov(Closeness~Codes, data=y$metrics)))
   y
 }
 
@@ -434,16 +438,24 @@ filt<-function(b){sum(b>2)>(0.8*length(b))}
 #' @export
 #' @examples
 #' netstat()
-ConnStat<-function(groups, x){
+ConnStat<-function(list){
   require(phyloseq)
   require(igraph)
-  a<-subset_samples(x, samplecodes==groups)
-  a<-finter_taxa(a, filt, TRUE)
+  #groups1<-groups1
+  #a<-subset_samples(x, samplecodes==groups1)
+  a<-filter_taxa(list, filt, TRUE)
+  a<-transform_sample_counts(a, transform)
   a<-otu_table(a)
+  a<-cor(a)
+  a[abs(a)<0.7]<-0
+  a[abs(a)>0.7]<-1
+  net<-graph_from_incidence_matrix(a)
+  cfg<- cluster_fast_greedy(as.undirected(net))
+  out<-matrix(1:3,1)
   colnames(out)<-c("Closeness", "Degree", "Modularity")
-  out[1,1]<-mean(closeness(a))
-  out[1,2]<-sum(degree(a))/length(degree(a))
-  out[1,3]<-mean(modularity(a))
+  out[1,1]<-mean(closeness(net))
+  out[1,2]<-mean(degree(net))
+  out[1,3]<-modularity(net, membership(cfg))
   out
 }
 
@@ -457,18 +469,24 @@ ConnStat<-function(groups, x){
 #' @export
 #' @examples
 #'plotNtwk()
-plotNtwk<-function(groups, x){
+plotNtwk<-function(list, name){
   require(phyloseq)
   require(igraph)
-  a<-subset_samples(x, samplecodes==groups)
-  a<-filter_taxa(a, filt, TRUE)
+  #a<-subset_samples(x, samplecodes==groups1)
+  a<-filter_taxa(list, filt, TRUE)
   a<-transform_sample_counts(a, transform)
   a<-otu_table(a)
+  a<-cor(a)
+  a[a<0.7]<-0
+  a[a>0.7]<-1
   net<-graph_from_incidence_matrix(a)
-  ceb <- cluster_edge_betweenness(net)
-  out$plot1<-dendPlot(ceb, mode="hclust")
-  out$plot2<-plot(ceb, net)
-  out$ceb<-ceb
+  cfg<- cluster_fast_greedy(as.undirected(net))
+  #ceb <- cluster_edge_betweenness(net)
+  #out$plot1<-dendPlot(ceb, mode="hclust")
+  #png(paste("~/Desktop/PhD/Metagenome/Networks/", x, ".png", sep=""))
+  plot(cfg, as.undirected(net), layout=layout_nicely(net), vertex.label=NA, main=name)
+  #dev.off()
+  #out<-membership(cfg)
   out}
 
 #' transform count values
