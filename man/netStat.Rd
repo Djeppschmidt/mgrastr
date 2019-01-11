@@ -4,14 +4,14 @@
 \alias{netStat}
 \title{construct table of network index values}
 \usage{
-netStat(x, groups1, groups2)
+netStat(list, groups2, name)
 }
 \arguments{
+\item{groups2}{groups for stats model}
+
 \item{x}{list of phyloseq objects}
 
 \item{groups1}{list of groups to divide phylsoeq object by}
-
-\item{groups2}{groups for stats model}
 }
 \description{
 download functional annotations of many files, combine into a table

@@ -4,7 +4,7 @@
 \alias{plotNtwk}
 \title{construct table of connectivity values}
 \usage{
-plotNtwk(groups, x)
+plotNtwk(list, name)
 }
 \arguments{
 \item{x}{phyloseq object}

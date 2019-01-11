@@ -407,15 +407,15 @@ dendromap<-function(){
 netStat<-function(list, groups2, name){
   require(plyr)
   require(dplyr)
-  #pdf(paste("~/Desktop/PhD/Metagenome/Networks/Disease.pdf", sep=""))
- # y$membership<-
   l_ply(list, plotNtwk, name)
-  #while (!is.null(dev.list()))  dev.off()
+  y<-NULL
   y$metrics<-ldply(list, ConnStat)
   y$metrics<-data.frame(y$metrics, groups2) # sanity check
-  y$stats<-c("Closeness"=summary(aov(Closeness~Codes, data=y$metrics)),
-             "Degree"=summary(aov(Closeness~Codes, data=y$metrics)),
-             "Modularity"=summary(aov(Closeness~Codes, data=y$metrics)))
+  y$stats<-c("Closeness"=summary(aov(Cohesion~Codes, data=y$metrics)),
+             "Degree"=summary(aov(Degree~Codes, data=y$metrics)),
+             "Modularity"=summary(aov(Modularity~Codes, data=y$metrics)),
+             "Nodes"=summary(aov(Nodes~Codes, data=y$metrics)),
+             "Edges"=summary(aov(Edges~Codes, data=y$metrics)))
   y
 }
 
@@ -427,6 +427,79 @@ netStat<-function(list, groups2, name){
 #' @examples
 #'netstat()
 filt<-function(b){sum(b>2)>(0.8*length(b))}
+
+#' construct table of connectivity values
+#'
+#' constructs network based explicitly on number of expected edges.
+#' Challenge is in defining appropriate level of edges for interpretable topology.
+#' Most nodes have at least one highly significant correlation to another; thus with very few edges, we get all the nodes, and as we decrease significance threshold, the network fills out.
+#' @param x phyloseq object
+#' @param cat categorical variable to subset phyloseq object
+#'
+#' @keywords igraph metric summaries
+#' @export
+#' @examples
+#' netstat()
+ConnStat2<-function(list, num){
+  require(phyloseq)
+  require(igraph)
+  a<-filter_taxa(list, filt, TRUE)
+  a<-transform_sample_counts(a, transform)
+  o<-otu_table(a)
+  c<-cor(o)
+  i=1
+  c[c<1]<-0
+  n<-graph_from_incidence_matrix(c)
+  while(ecount(n)<num){
+    t<-otu_table(a)
+    t<-cor(t)
+    t[t<i]<-0
+    t[t>i]<-1
+    n<-graph_from_incidence_matrix(t)
+    i=i-0.001
+  }
+  cfg<-cluster_fast_greedy(as.undirected(n))
+  out<-matrix(1:3,1)
+  colnames(out)<-c("Closeness", "Degree", "Modularity")
+  out[1,1]<-mean(closeness(n))
+  out[1,2]<-mean(degree(n))
+  out[1,3]<-modularity(n, membership(cfg))
+  out
+}
+
+#' plot networks
+#'
+#' make network explicitly defined number of edges
+#' @param x phyloseq object
+#' @param cat categorical variable to subset phyloseq object
+#'
+#' @keywords igraph metric summaries
+#' @export
+#' @examples
+#'plotNtwk()
+plotNtwk2<-function(list, name, num){
+  require(phyloseq)
+  require(igraph)
+  a<-filter_taxa(list, filt, TRUE)
+  a<-transform_sample_counts(a, transform)
+  o<-otu_table(a)
+  c<-cor(o)
+  i=1
+  c[c<1]<-0
+  n<-graph_from_incidence_matrix(c)
+  while(ecount(n)<num){
+    t<-otu_table(a)
+    t<-cor(t)
+    t[t<i]<-0
+    t[t>i]<-1
+    n<-graph_from_incidence_matrix(t)
+    i=i-0.001
+  }
+  cfg<-cluster_fast_greedy(as.undirected(n))
+  plot(cfg, as.undirected(n), layout=layout_nicely(n), vertex.label=NA, main=name, vertex.size=10)
+  #dev.off()
+  #out<-membership(cfg)
+  out}
 
 #' construct table of connectivity values
 #'
@@ -444,18 +517,22 @@ ConnStat<-function(list){
   #groups1<-groups1
   #a<-subset_samples(x, samplecodes==groups1)
   a<-filter_taxa(list, filt, TRUE)
+  #filter for a priori relativized datasets (wrong approach!):
+  #a<-filter_taxa(list, function(x) var(x) > 1e-5, TRUE)
   a<-transform_sample_counts(a, transform)
-  a<-otu_table(a)
-  a<-cor(a)
-  a[abs(a)<0.7]<-0
-  a[abs(a)>0.7]<-1
-  net<-graph_from_incidence_matrix(a)
-  cfg<- cluster_fast_greedy(as.undirected(net))
-  out<-matrix(1:3,1)
-  colnames(out)<-c("Closeness", "Degree", "Modularity")
-  out[1,1]<-mean(closeness(net))
-  out[1,2]<-mean(degree(net))
-  out[1,3]<-modularity(net, membership(cfg))
+  o<-otu_table(a)
+  c<-cor(o)
+  c[abs(c)<0.7]<-0
+  c[abs(c)>0.7]<-1
+  n<-graph_from_incidence_matrix(c)
+  cfg<-cluster_fast_greedy(as.undirected(n))
+  out<-matrix(nrow=1, ncol=5)
+  colnames(out)<-c("Cohesion", "Degree", "Modularity", "Nodes", "Edges")
+  out[1,1]<-cohesion(n)
+  out[1,2]<-mean(degree(n))
+  out[1,3]<-modularity(n, membership(cfg))
+  out[1,4]<-vcount(n)
+  out[1,5]<-ecount(n)
   out
 }
 
@@ -472,22 +549,23 @@ ConnStat<-function(list){
 plotNtwk<-function(list, name){
   require(phyloseq)
   require(igraph)
-  #a<-subset_samples(x, samplecodes==groups1)
   a<-filter_taxa(list, filt, TRUE)
-  a<-transform_sample_counts(a, transform)
-  a<-otu_table(a)
-  a<-cor(a)
-  a[a<0.7]<-0
-  a[a>0.7]<-1
-  net<-graph_from_incidence_matrix(a)
-  cfg<- cluster_fast_greedy(as.undirected(net))
-  #ceb <- cluster_edge_betweenness(net)
-  #out$plot1<-dendPlot(ceb, mode="hclust")
-  #png(paste("~/Desktop/PhD/Metagenome/Networks/", x, ".png", sep=""))
-  plot(cfg, as.undirected(net), layout=layout_nicely(net), vertex.label=NA, main=name)
+  #filter for a priori relativized datasets (wrong approach!):
+  #a<-filter_taxa(list, function(x) var(x) > 1e-5, TRUE)
+  #a<-transform_sample_counts(a, transform)
+  o<-otu_table(a)
+  c<-cor(o)
+  c[abs(c)<0.7]<-0
+  c[abs(c)>0.7]<-1
+  n<-graph_from_incidence_matrix(c)
+  cfg<-cluster_fast_greedy(as.undirected(n))
+  plot(cfg, as.undirected(n), layout=layout_nicely(n), vertex.label=NA, main=name, vertex.size=10)
   #dev.off()
-  #out<-membership(cfg)
+  out<-membership(cfg)
   out}
+
+
+
 
 #' transform count values
 #' @param x taxa
@@ -496,3 +574,93 @@ plotNtwk<-function(list, name){
 #' @examples
 #'transform()
 transform<-function(x){x/sum(x)}
+
+#' transform count values
+#' @param x taxa
+#' @keywords igraph metric summaries
+#' @export
+#' @examples
+#'MeanNetval()
+MeanNetval<-function(x){
+  Means<-matrix(nrow=6, ncol=4)
+  Means[1,1]<-mean(x$metrics$Modularity[x$metrics$Codes=="Reference"])
+  Means[1,2]<-mean(x$metrics$Modularity[x$metrics$Codes=="Remnant"])
+  Means[1,3]<-mean(x$metrics$Modularity[x$metrics$Codes=="Turf"])
+  Means[1,4]<-mean(x$metrics$Modularity[x$metrics$Codes=="Ruderal"])
+
+
+  Means[2,1]<-mean(x$metrics$Degree[x$metrics$Codes=="Reference"])
+  Means[2,2]<-mean(x$metrics$Degree[x$metrics$Codes=="Remnant"])
+  Means[2,3]<-mean(x$metrics$Degree[x$metrics$Codes=="Turf"])
+  Means[2,4]<-mean(x$metrics$Degree[x$metrics$Codes=="Ruderal"])
+
+  Means[3,1]<-mean(x$metrics$Closeness[x$metrics$Codes=="Reference"])
+  Means[3,2]<-mean(x$metrics$Closeness[x$metrics$Codes=="Remnant"])
+  Means[3,3]<-mean(x$metrics$Closeness[x$metrics$Codes=="Turf"])
+  Means[3,4]<-mean(x$metrics$Closeness[x$metrics$Codes=="Ruderal"])
+
+
+  Means[4,1]<-var(x$metrics$Modularity[x$metrics$Codes=="Reference"])
+  Means[4,2]<-var(x$metrics$Modularity[x$metrics$Codes=="Remnant"])
+  Means[4,3]<-var(x$metrics$Modularity[x$metrics$Codes=="Turf"])
+  Means[4,4]<-var(x$metrics$Modularity[x$metrics$Codes=="Ruderal"])
+
+
+  Means[5,1]<-var(x$metrics$Degree[x$metrics$Codes=="Reference"])
+  Means[5,2]<-var(x$metrics$Degree[x$metrics$Codes=="Remnant"])
+  Means[5,3]<-var(x$metrics$Degree[x$metrics$Codes=="Turf"])
+  Means[5,4]<-var(x$metrics$Degree[x$metrics$Codes=="Ruderal"])
+
+  Means[6,1]<-var(x$metrics$Closeness[x$metrics$Codes=="Reference"])
+  Means[6,2]<-var(x$metrics$Closeness[x$metrics$Codes=="Remnant"])
+  Means[6,3]<-var(x$metrics$Closeness[x$metrics$Codes=="Turf"])
+  Means[6,4]<-var(x$metrics$Closeness[x$metrics$Codes=="Ruderal"])
+  rownames(Means)<-c("ModularityM", "DegreeM", "ClosenessM","ModularityV", "DegreeV", "ClosenessV")
+  colnames(Means)<-c("Reference", "Remnant", "Turf", "Ruderal")
+  as.data.frame(Means)
+}
+
+#' Linear model
+#' @param x taxon
+#' @param y covariate data
+#' @param data data
+#' @keywords
+#' @export
+#' @examples
+#'linmod()
+linmod<-function(x, y, data){
+  nlme(x~y, random=~1|City/Codes, data=data)
+}
+
+#' function-correlation matrix
+#' @param x taxon
+#' @param y functional abundance
+#' @param data data
+#' @keywords
+#' @export
+#' @examples
+#'linmod()
+FT.cor<-function(x, y){
+  F.L4<-x
+  F.L3<-tax_glom(x, taxrank = "L3")
+  F.L1<-tax_glom(x, taxrank = "L1")
+
+  T.a<-y
+  T.g<-tax_glom(y, taxrank = "Genus")
+  T.f<-tax_glom(y, taxrank = "Family")
+  T.o<-tax_glom(y, taxrank = "Order")
+  l<-c(as.data.frame(as.matrix(otu_table(T.a))), as.data.frame(as.matrix(otu_table(T.g))), as.data.frame(as.matrix(otu_table(T.f))), as.data.frame(as.matrix(otu_table(T.o))))
+
+  list<-c("L1"=llply(l, cor, as.data.frame(as.matrix(otu_table(F.L1))), method="pearson"), "L3"=llply(l, cor, as.data.frame(as.matrix(otu_table(F.L3))), method="pearson"), "L4"=llply(l, cor, as.data.frame(as.matrix(otu_table(F.L4))), method="pearson"))
+  list
+}
+
+#' function-correlation matrix
+#' @param x taxon
+#' @param y functional abundance
+#' @param data data
+#' @keywords
+#' @export
+#' @examples
+#'linmod()
+
