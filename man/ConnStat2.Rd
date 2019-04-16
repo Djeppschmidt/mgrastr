@@ -4,7 +4,7 @@
 \alias{ConnStat2}
 \title{construct table of connectivity values}
 \usage{
-ConnStat2(list)
+ConnStat2(list, num)
 }
 \arguments{
 \item{x}{phyloseq object}
@@ -12,7 +12,9 @@ ConnStat2(list)
 \item{cat}{categorical variable to subset phyloseq object}
 }
 \description{
-download functional annotations of many files, combine into a table
+constructs network based explicitly on number of expected edges.
+Challenge is in defining appropriate level of edges for interpretable topology.
+Most nodes have at least one highly significant correlation to another; thus with very few edges, we get all the nodes, and as we decrease significance threshold, the network fills out.
 }
 \examples{
 netstat()

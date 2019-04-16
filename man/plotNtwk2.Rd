@@ -2,9 +2,9 @@
 % Please edit documentation in R/MG_RastPipeline.R
 \name{plotNtwk2}
 \alias{plotNtwk2}
-\title{construct table of connectivity values}
+\title{plot networks}
 \usage{
-plotNtwk2(list, name)
+plotNtwk2(list, name, num)
 }
 \arguments{
 \item{x}{phyloseq object}
@@ -12,7 +12,7 @@ plotNtwk2(list, name)
 \item{cat}{categorical variable to subset phyloseq object}
 }
 \description{
-download functional annotations of many files, combine into a table
+make network explicitly defined number of edges
 }
 \examples{
 plotNtwk()

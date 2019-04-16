@@ -63,6 +63,10 @@ Now, we have a large list of lists of tables e.g. l.taxa[sample_1[genus.table]]
 
 Before we aggregate everything together, we have to prepare the metadata:
 (This metadata will also be used later in the download functions workflow as well)
+
+Note: sample_key should have at least twice the number of entries in it than sam because it includes individual data for the forward and reverse reads for each run for a particular sample. sam should only include metadata that is particular at the sample level or higher. An easy mistake is to include "sample data" for replicate runs or f/r reads in the sam file. This will cause later functions to fail. 
+
+
 ```{r}
 sample_key<-read.csv("~/Desktop/PhD/Metagenome/SampleKey.csv")
 sample_key<-data.frame(sample_key)
@@ -104,7 +108,7 @@ The output are phyloseq objects with OTU tables and metadata merged together for
 
 Right now this function only works for the Subsystems ontology. Hopefully I will get to expanding it's capability soon!
 
-For starters, a central challenge for downloading summarized annotations from MG-Rast is that the counts are aggregated on the fly. This means that there is some time between the request, and when the results are posted to the output url. For execution simplicity (and reduce computational demand) I've devided the workflow into two basic steps. The first submits the request to MG-Rast, and the second downloads the results from the url supplied by MG-Rast. It can take MG-Rast some time to fill the request, and the url is available for quite a long time after the request is submitted. So I recommend setting up the request to run over the weekend, then run the download and parse script first thing on a Monday.
+For starters, a central challenge for downloading summarized annotations from MG-Rast is that the counts are aggregated on the fly. This means that there is some time between the request, and when the results are posted to the output url. For execution simplicity (and reduce computational demand) I've divided the workflow into two basic steps. The first submits the request to MG-Rast, and the second downloads the results from the url supplied by MG-Rast. It can take MG-Rast some time to fill the request, and the url is available for quite a long time after the request is submitted. So I recommend setting up the request to run over night, then run the download and parse script first thing on a Monday. This is important because if you run the download script too early, the data for some of the samples will not be aggregated yet and it can cause errors.
 
 The first step is to define the input variables. In this case: 
 
@@ -137,16 +141,16 @@ url<-loadFunc(l.sID,  auth="gbdwiyCZqACamvn8fG59aTs3Z", ont="Subsystems", level=
 head(url)
 ```
 
-This script will produce a list of urls that will eventually be populated with the annotation data. It should submit the requests relatively quickly; if you want you can wait 15-20 minutes to make sure the script completes without errors and shut things down for the evening. The long wait is on the server end as it's quietly compiling the results. They may not be ready for 10-20 hours, depending on how large your files are and how many requests you are submitting at once (how long your list of accession numbers is). Most files will be ready in under an hour, but it's best to be patient and let the server finish.
+This script will produce a list of urls that will eventually be populated with the annotation data. It should submit the requests relatively quickly; if you want you can wait 15-20 minutes to make sure the script completes without errors and shut things down for the evening. The long wait is on the server end as it's quietly compiling the results. They may not be ready for 1-20 hours, depending on how large your files are and how many requests you are submitting at once (how long your list of accession numbers is). Most files will be ready in under an hour, but it's best to be patient and let the server finish.
 
 To download the data, we simply execute the following:
 
 x = list of urls
 ont = ontology that was requested; this tells script what format to expect he data in (each ontology has it's own output format).
-level = ontology level of interest. Must be one of 1, 2, 3, or 4. 4 is higest granularity.
+level = ontology level of interest. Must be one of 1, 2, 3, or 4. 4 is higest granularity, and my prefered level for intepretation. You can always decrease resolution, but if you start low it's hard to increase.
 
 ```{r}
-dt<-downloadFunc(url, ont="Subsystems", level=3)
+dt<-downloadFunc(url, ont="Subsystems", level=4)
 ```
 
 The output of this function is a table with samples as columns and functions as rows, populated with counts. From here, we condense replicate sequencing runs and forward/reverse reads, just like in the taxonomy workflow.
@@ -156,3 +160,26 @@ dt<-condense(dt, samkey, sam)
 ```
 
 OK We're finished and ready for analysis. YAY!!
+
+Troubleshooting:
+
+Make sure that url contains a url for each of the files you submitted to mg-RAST. All requests must load for this pipeline to work. If you accidentaly have duplicate accession numbers, or have a typo in one, the downstream steps will fail. Step one is to check to make sure your input files are formatted properly, and the list of file names and accession numbers are all unique.
+
+If you are getting an output table that doesn't include all your samples, pick one that you are missing. Copy the url for the request into a web browser. For example, access the url request from R script by:
+
+```{r}
+url$GLU001_R1
+```
+
+If the webpage contains this, then mg-RAST is not done compiling the data:
+
+
+
+If the webpage contains this, then you need to lower the QC parameters for matching annotations:
+
+{"ERROR":"no data returned for the given parameters, try again with lower cutoffs (evalue, identity, length)"}
+
+to insert an image:
+```{r}
+![caption]filepath.png
+```

@@ -244,7 +244,7 @@ download.F<-function(x, level, ont){
       s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
     }
     else if(level==4){
-     s.func[,1]<-s.dl$data$rows$id
+     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level4
     }
     else { return("error: level not specified, or out of bounds")}
   }
@@ -263,7 +263,7 @@ download.F<-function(x, level, ont){
      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
     }
    else if(level==4){
-     s.func[,1]<-s.dl$data$rows$id
+     s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level4
     }
     else { return("error: level not specified, or out of bounds")}
   }
@@ -282,7 +282,7 @@ download.F<-function(x, level, ont){
      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
     }
    else if(level==4){
-    s.func[,1]<-s.dl$data$rows$id
+    s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level4
     }
   else { return("error: level not specified, or out of bounds")}
   }
@@ -301,7 +301,7 @@ download.F<-function(x, level, ont){
       s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level1
     }
     else if(level==4){
-      s.func[,1]<-s.dl$data$rows$id
+      s.func[,1]<-s.dl$data$rows$metadata.hierarchy.level4
     }
   }
 
@@ -663,4 +663,3 @@ FT.cor<-function(x, y){
 #' @export
 #' @examples
 #'linmod()
-
