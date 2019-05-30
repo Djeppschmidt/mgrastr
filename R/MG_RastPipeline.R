@@ -310,6 +310,32 @@ else {return("Error: ontology not specified, or out of bounds")}
   as.data.frame(s.func)
   s.func # restructure to return a phyloseq w/ tax table extracted
 }
+#' download summary seq assignments
+#'
+#' this function downloads data on overall matches to database
+#' @param x mg-rast ID, or list of IDs
+#' @param y metadata connecting MG-id to sample ID
+#' @keywords summary download sequence
+#' @export
+#' @examples
+#' seqstats()
+
+seqstats<-function(x, y){
+  require(phyloseq)
+  require(jsonlite)
+  require(httr)
+  lldl<-function(a){fromJSON(content(GET(paste("https://api-ui.mg-rast.org/metagenome/", a, "?verbosity=stats&detail=sequence_breakdown", sep="")), "text"), flatten=T)}
+  #lld2<-function(a){fromJSON(content(GET(paste("https://api-ui.mg-rast.org/metagenome/",a,"?verbosity=metadata", sep="")), "text"), flatten=T)} # not necessary...
+  s.dl<-lapply(x, lldl)
+  out1<-ldply(s.dl, unlist)
+  rownames(out1)<-out1[,1]
+  out1<-out1[,-1]
+
+  df<-phyloseq(otu_table(out1, taxa_are_rows = F), sample_data(y))
+  df<-merge_samples(df, "Sample_ID",fun=sum)
+  df1<-otu_table(df)
+  df1
+}
 
 
 #####
@@ -334,7 +360,7 @@ downloadFunc<-function(x, level, ont){
   dl$Function<-as.character(dl$Function)
   dl<-na.omit(dl)
   t.f<-as.data.frame(dcast(dl, Function~ID, fun.aggregate=sum, na.omit=T))
-  rownames(t.f)<-t.f$Function
+  rownames(t.f)<-paste(t.f$Function, c(1:length(t.f$Function)), sep="_")
   t.f<-t.f[,-1]
   t.f[is.na(t.f)]<-0
   t.f[]<-lapply(t.f, as.numeric)
@@ -344,9 +370,7 @@ downloadFunc<-function(x, level, ont){
 #' combine tables and condense
 #'
 #' download functional annotations of many files, combine into a table
-#' @param x list of mg-rast accession numbers
-#' @param auth authentication code for mg-rast
-#' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
+#' @param l list of urls
 #' @keywords mg-RAST function download
 #' @export
 #' @examples
@@ -364,10 +388,8 @@ DFTax<-function(l){
 #' parse single ontology into heirarchical table
 #'
 #' download functional annotations of many files, combine into a table
-#' @param x list of mg-rast accession numbers
-#' @param auth authentication code for mg-rast
-#' @param ont level of ontology. acceptable: Subsystems, COG, KO, NOG
-#' @keywords mg-RAST function download
+#' @param url list of urls
+#' @keywords mg-RAST function annotation table
 #' @export
 #' @examples
 #'extractT()
