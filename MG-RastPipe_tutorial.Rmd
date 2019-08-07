@@ -131,7 +131,7 @@ names(l.sID)<-O.key$Seq_ID # name list according to unique sample IDs
 Ok, now we call the script that will start MG-Rast compiling the data.
 
 level = level of ontology to querry. acceptable values are anything between 1 and 4.
-E = the e-value. is interpreted as e^-E; thus higher values mean smaller e values, and therefore less random matching. MG-Rast devault is 5
+E = the e-value. is interpreted as e^-E; thus higher values mean smaller e values, and therefore less random matching. MG-Rast devault is 5. I usually do at leat 10.
 length = the minimum length of match. MG-RAST default is 15
 id = minimum percent bases matching. MG-RAST default is 60
 
@@ -158,11 +158,28 @@ The output of this function is a table with samples as columns and functions as 
 ```{r}
 dt<-condense(dt, samkey, sam)
 ```
+Now we've got our functions and data table, but the annotations aren't very interpretable. You can check to see:
+```{r}
+head(tax_table(dt))
+```
+The accession numbers don't mean much on their own. To make a table with the annotations at each of the four subsystems ontology levels, we can do:
+```{r}
+f.tax<-DFTax(url)
+```
+Now we've got a table with the annotations at different ontological resolution. So let's combine it with the count data:
 
+```{r}
+tax_table(dt)<-f.tax
+head(tax_table(dt))
+```
 OK We're finished and ready for analysis. YAY!!
 
 Troubleshooting:
 
+IF URL list is NULL:
+Often the authentication key fails even if technically it is 100% correct. I don't know why this happens. I get around it by going into mg-rast and copy/paste my authentication from mg-rast back into R. This usually works.
+
+IF the condense() function gives an empty table or error:
 Make sure that url contains a url for each of the files you submitted to mg-RAST. All requests must load for this pipeline to work. If you accidentaly have duplicate accession numbers, or have a typo in one, the downstream steps will fail. Step one is to check to make sure your input files are formatted properly, and the list of file names and accession numbers are all unique.
 
 If you are getting an output table that doesn't include all your samples, pick one that you are missing. Copy the url for the request into a web browser. For example, access the url request from R script by:
